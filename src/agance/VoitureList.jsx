@@ -6,6 +6,7 @@ const VoiturePage = () => {
   const [voituresPasDisponible, setVoituresPasDisponible] = useState([]);
   const [voituresDisponible, setVoituresDisponible] = useState([]);
   const [voituresReserve, setVoituresReserve] = useState([]);
+  const [voituresReparation, setVoituresReparation] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [reparations, setReparations] = useState([]);
 
@@ -19,6 +20,7 @@ const VoiturePage = () => {
     facture: null,
   });
   const handleChange = (e) => {
+    
     const { name, value, files } = e.target;
     setForm({
       ...form,
@@ -28,9 +30,10 @@ const VoiturePage = () => {
 
     const handleSubmit = async (e) => {
     e.preventDefault();
+      form.voiture_id = selectedVoiture.id;
 
     const data = new FormData();
-    data.append("voiture_id", form.voiture_id);
+    data.append("voiture_id", selectedVoiture.id);
     data.append("agency_id", idagency);
     data.append("type", form.type);
     data.append("date_debut", form.date_debut);
@@ -40,10 +43,16 @@ const VoiturePage = () => {
     data.append("facture", form.facture);
 
     try {
+      console.log("Submitting repair:", form);
       await callApi(`/preparations`, "POST", data, {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
         "Content-Type": "multipart/form-data",
       });
+      await callApi(`/voitures/${form.voiture_id}`, "PUT", {
+            status :'Reparation'
+          } , {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          });
 
       setShowModal(false);
       setForm({
@@ -62,6 +71,7 @@ const VoiturePage = () => {
         "GET"
       );
       setReparations(res);
+      loadVoitures();
     } catch (e) {
       console.error("Erreur ajout réparation", e);
     }
@@ -74,6 +84,7 @@ const VoiturePage = () => {
   const [showReservation, setShowReservation] = useState(false);
   const [showReparation, setShowReparation] = useState(false);
   const [ShowAnnuler_Reservation, setShowAnnuler_Reservation] = useState(false);
+  const [ShowAnnuler_Reparation, setShowAnnuler_Reparation] = useState(false);
   const [Show_Return_Voiture, setShow_Return_Voiture] = useState(false);
 
   // --------------------------------------------------------
@@ -87,6 +98,7 @@ const VoiturePage = () => {
       setVoituresDisponible(res.filter(v => v.status === 'Disponible'));
       setVoituresReserve(res.filter(v => v.status === 'Reserve'));
       setVoituresPasDisponible(res.filter(v => v.status === 'Pas disponible'));
+      setVoituresReparation(res.filter(v => v.status === 'Reparation'));
     } catch (e) {
       console.log("Erreur : ", e);
     }
@@ -152,8 +164,6 @@ const VoiturePage = () => {
       "Content-Type": "multipart/form-data",
       Authorization: `Bearer ${localStorage.getItem("token")}`,
     });
-
-    alert("Voiture ajoutée !");
     setShowAdd(false);
     loadVoitures();
   };
@@ -341,7 +351,6 @@ const ShowReturnVoiture = () => {
     date_fin: "",
     prix: "",
     prix_total: "",
-    status: "",
     contrat : "",
     img_etat : ""
   });
@@ -428,9 +437,8 @@ const handleSubmit = async () => {
     const reservationPayload = {
       ...form,
       client_id: clientId,
+      status : 'En cours'
     };
-
-    console.log(reservationPayload)
     await callApi("/reservations", "POST", reservationPayload , {
       Authorization: `Bearer ${localStorage.getItem("token")}`,
     });
@@ -637,7 +645,8 @@ return (
             setForm({ ...form, status: e.target.value })
           }
         >
-          <option value="Reserve" defaultChecked>Réservée</option>
+          <option defaultChecked>-----Status-----</option>
+          <option value="Reserve">Réservée</option>
           <option value="Pas disponible">Indisponible</option>
         </select>
       </div>
@@ -664,7 +673,13 @@ return (
 
     const handleSubmit = async () => {
       await callApi("/reparations", "POST", form);
+      await callApi(`/voitures/${selectedVoiture?.id}`, "PUT", {
+      status: "Reparation"
+      } , {
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      });
       setShowReparation(false);
+      loadVoitures();
     };
 
     return (
@@ -704,7 +719,40 @@ return (
         Authorization: `Bearer ${localStorage.getItem("token")}`,
       });
       loadVoitures();
-      setShow_Return_Voiture(false);
+      setShowAnnuler_Reservation(false);
+    };
+    
+    return (
+      <div>
+        <h2 className="text-xl font-bold mb-4">
+          Return Voiture — {selectedVoiture?.model}
+        </h2>
+      <div className="flex">
+        <button
+          onClick={()=>setShow_Return_Voiture(false)}
+          className="bg-green-600 m-5 text-white px-4 py-2 rounded w-full"
+        >
+          Non
+        </button>
+        <button
+          onClick={handleSubmit}
+          className="bg-red-600 m-5 text-white px-4 py-2 rounded w-full"
+        >
+          Oui
+        </button>
+</div>
+      </div>
+    );
+  };
+  const AnnulerReparation = () => {
+    const handleSubmit = async () => {
+      await callApi(`/voitures/${selectedVoiture?.id}`, "PUT", {
+      status: "Disponible"
+    } , {
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      });
+      loadVoitures();
+      setShowAnnuler_Reparation(false);
     };
     
     return (
@@ -869,20 +917,7 @@ const [showInfo, setShowInfo] = useState(false);
             <h3 className="text-xl font-bold mb-4">Ajouter Réparation</h3>
 
             <form onSubmit={handleSubmit} className="space-y-3">
-              <select
-                name="voiture_id"
-                required
-                value={form.voiture_id}
-                onChange={handleChange}
-                className="w-full border p-2"
-              >
-                <option value="">-- Sélectionner Voiture --</option>
-                {voitures.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.model} ({v.matricule})
-                  </option>
-                ))}
-              </select>
+                <h1>{selectedVoiture.model}-- {selectedVoiture.matricule}</h1>
 
               <input
                 name="type"
@@ -993,6 +1028,48 @@ const [showInfo, setShowInfo] = useState(false);
       </td>
     </tr>
   ))}
+  {/* ================= VOITURES Reparation ================= */}
+  {voituresReparation.length > 0 && (
+    <tr>
+      <td colSpan="5" className="bg-yellow-100 text-yellow-700 font-semibold px-3 py-2">
+        🛠️ Voitures Reparation ( {voituresReparation.length} )
+      </td>
+    </tr>
+  )}
+
+  {voituresReparation.map((v) => (
+    <tr key={v.id} className="text-center bg-yellow-50">
+      <td className="border p-2">
+        <img
+          src={`http://127.0.0.1:8000/storage/${v.img}`}
+          className="w-20 h-14 object-cover rounded mx-auto opacity-80"
+        />
+      </td>
+
+      <td className="border p-2">{v.model}</td>
+      <td className="border p-2">{v.matricule}</td>
+      <td className="border p-2">{v.prix_jour} DH</td>
+
+      <td className="border p-2 flex gap-2 justify-center">
+        <span onClick={() => {
+            setSelectedVoiture(v);
+            setShowAnnuler_Reparation(true);
+          }} className="px-3 py-1 cursor-pointer bg-red-500 text-white rounded text-sm">
+          Annuler Reparation  
+        </span>
+
+        <button
+          onClick={() => {
+            setSelectedVoiture(v);
+            setShowInfo(true);
+          }}
+          className="bg-blue-600 text-white px-3 py-1 rounded"
+        >
+          Info
+        </button>
+      </td>
+    </tr>
+  ))}
 
   {/* ================= VOITURES PAS DISPONIBLES ================= */}
   {voituresPasDisponible.length > 0 && (
@@ -1055,6 +1132,9 @@ const [showInfo, setShowInfo] = useState(false);
       </Modal>
       <Modal open={ShowAnnuler_Reservation} onClose={() => setShowAnnuler_Reservation(false)}>
         <AnnulerReservation />
+      </Modal>
+      <Modal open={ShowAnnuler_Reparation} onClose={() => setShowAnnuler_Reparation(false)}>
+        <AnnulerReparation />
       </Modal>
       <Modal open={Show_Return_Voiture} onClose={() => setShow_Return_Voiture(false)}>
         <ShowReturnVoiture />

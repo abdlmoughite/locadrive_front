@@ -6,6 +6,8 @@ import VoitureList from "./VoitureList";
 import ReservationPage from "./Reservations";
 import Reparation from "./Reparation";
 import Abonnment from "./Abonnment";
+import Depance from "./Depance";
+import BlacklistClient from "./Blacklist";
 
 const AppAgance = () => {
   useEffect(() => {
@@ -42,14 +44,13 @@ const AppAgance = () => {
 
           <Route
             path="/blacklist"
-            element={<h1 className="text-2xl font-semibold text-red-600">Clients Blacklistés</h1>}
+            element={<BlacklistClient/>}
           />
 
           <Route
             path="/voitures"
             element={<VoitureList/>}
           />
-
           <Route
             path="/reservations"
             element={<ReservationPage/>}
@@ -65,7 +66,7 @@ const AppAgance = () => {
 
           <Route
             path="/depenses"
-            element={<h1 className="text-2xl font-semibold text-orange-600">Dépenses</h1>}
+            element={<Depance/>}
           />
 
         </Routes>

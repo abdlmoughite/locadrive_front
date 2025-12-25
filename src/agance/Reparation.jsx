@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { callApi } from "../components/api";
 
 const Reparation = () => {
@@ -8,6 +8,10 @@ const Reparation = () => {
   const [reparations, setReparations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+
+  // pagination
+  const [page, setPage] = useState(1);
+  const rowsPerPage = 10;
 
   // FORM STATE
   const [form, setForm] = useState({
@@ -26,14 +30,21 @@ const Reparation = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const voituresRes = await callApi(`/voitures/agency/${idagency}`, "GET");
+        const voituresRes = await callApi(
+          `/voitures/agency/${idagency}`,
+          "GET"
+        );
+
         const reparationsRes = await callApi(
           `/preparations/agency/${idagency}`,
           "GET"
         );
 
         setVoitures(voituresRes || []);
-        setReparations(reparationsRes || []);
+
+        // 👉 dernier ajouté en premier
+        const sorted = [...(reparationsRes || [])].reverse();
+        setReparations(sorted);
       } catch (e) {
         console.error(e);
       } finally {
@@ -43,6 +54,16 @@ const Reparation = () => {
 
     fetchData();
   }, [idagency]);
+
+  // -------------------------
+  // PAGINATION
+  // -------------------------
+  const totalPages = Math.ceil(reparations.length / rowsPerPage);
+
+  const currentReparations = useMemo(() => {
+    const start = (page - 1) * rowsPerPage;
+    return reparations.slice(start, start + rowsPerPage);
+  }, [reparations, page]);
 
   // -------------------------
   // HANDLE FORM
@@ -62,6 +83,7 @@ const Reparation = () => {
     e.preventDefault();
 
     const data = new FormData();
+    
     data.append("voiture_id", form.voiture_id);
     data.append("agency_id", idagency);
     data.append("type", form.type);
@@ -70,12 +92,33 @@ const Reparation = () => {
     data.append("commentaire", form.commentaire);
     data.append("prix", form.prix);
     data.append("facture", form.facture);
+      
+    const dataDepance = new FormData();
+      dataDepance.append("agency_id", idagency);
+      dataDepance.append("montant", form.prix);
+      dataDepance.append("date", form.date_debut);
+      dataDepance.append("commentaire", form.commentaire);
+      dataDepance.append("type", form.type);
+
 
     try {
       await callApi(`/preparations`, "POST", data, {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
         "Content-Type": "multipart/form-data",
       });
+      await callApi(`/depenses`, "POST", dataDepance, {
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+        "Content-Type": "multipart/form-data",
+      });
+
+      await callApi(
+        `/voitures/${form.voiture_id}`,
+        "PUT",
+        { status: "Reparation" },
+        {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        }
+      );
 
       setShowModal(false);
       setForm({
@@ -85,21 +128,25 @@ const Reparation = () => {
         date_fin: "",
         commentaire: "",
         prix: "",
-        facture: 'facture',
+        facture: null,
       });
 
-      // reload
+      // reload réparations (dernier en premier)
       const res = await callApi(
         `/preparations/agency/${idagency}`,
         "GET"
       );
-      setReparations(res);
+      setReparations([...res].reverse());
+      setPage(1);
     } catch (e) {
       console.error("Erreur ajout réparation", e);
     }
   };
 
-    const totalReparations = reparations.reduce(
+  // -------------------------
+  // TOTAL
+  // -------------------------
+  const totalReparations = reparations.reduce(
     (acc, r) => acc + (Number(r.prix) || 0),
     0
   );
@@ -110,7 +157,9 @@ const Reparation = () => {
     <div className="p-6">
       {/* HEADER */}
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold">Réparations : {totalReparations} DB</h2>
+        <h2 className="text-2xl font-bold">
+          Réparations : {totalReparations} DH
+        </h2>
         <button
           onClick={() => setShowModal(true)}
           className="bg-blue-600 text-white px-4 py-2 rounded"
@@ -128,11 +177,11 @@ const Reparation = () => {
             <th className="border p-2">Dates</th>
             <th className="border p-2">Prix</th>
             <th className="border p-2">Facture</th>
-            <th className="border p-2">commentaire</th>
+            <th className="border p-2">Commentaire</th>
           </tr>
         </thead>
         <tbody>
-          {reparations.map((r) => {
+          {currentReparations.map((r) => {
             const v = voitures.find((x) => x.id === r.voiture_id);
             return (
               <tr key={r.id}>
@@ -143,33 +192,49 @@ const Reparation = () => {
                 <td className="border p-2">
                   {r.date_debut} → {r.date_fin || "-"}
                 </td>
-                <td className="border p-2 text-green-6 00">{r.prix} DH</td>
-
+                <td className="border p-2 text-green-600">
+                  {r.prix} DH
+                </td>
                 <td className="border p-2 text-center">
                   {r.facture ? (
-                    <button
-                      className="text-blue-600 underline"
-                    >
+                    <button className="text-blue-600 underline">
                       Voir
                     </button>
                   ) : (
                     "-"
                   )}
                 </td>
-                                
-                <td className="border p-2 text-green-6 00">{r.commentaire} DH</td>
-
+                <td className="border p-2">{r.commentaire}</td>
               </tr>
             );
           })}
         </tbody>
       </table>
 
+      {/* PAGINATION */}
+      <div className="flex justify-center gap-2 mt-4">
+        {[...Array(totalPages)].map((_, i) => (
+          <button
+            key={i}
+            onClick={() => setPage(i + 1)}
+            className={`px-3 py-1 rounded ${
+              page === i + 1
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 hover:bg-gray-300"
+            }`}
+          >
+            {i + 1}
+          </button>
+        ))}
+      </div>
+
       {/* MODAL */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
           <div className="bg-white p-6 rounded w-[400px]">
-            <h3 className="text-xl font-bold mb-4">Ajouter Réparation</h3>
+            <h3 className="text-xl font-bold mb-4">
+              Ajouter Réparation
+            </h3>
 
             <form onSubmit={handleSubmit} className="space-y-3">
               <select
@@ -180,11 +245,14 @@ const Reparation = () => {
                 className="w-full border p-2"
               >
                 <option value="">-- Sélectionner Voiture --</option>
-                {voitures.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.model} ({v.matricule})
-                  </option>
-                ))}
+                {voitures.map(
+                  (v) =>
+                    v.status === "Disponible" && (
+                      <option key={v.id} value={v.id}>
+                        {v.model} ({v.matricule})
+                      </option>
+                    )
+                )}
               </select>
 
               <input
@@ -223,12 +291,6 @@ const Reparation = () => {
               <textarea
                 name="commentaire"
                 placeholder="Commentaire"
-                className="w-full border p-2"
-                onChange={handleChange}
-              />
-              <textarea
-                name="facture"
-                placeholder="facture"
                 className="w-full border p-2"
                 onChange={handleChange}
               />

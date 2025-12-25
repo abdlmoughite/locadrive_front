@@ -7,6 +7,87 @@ const ReservationPage = () => {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedReservation, setSelectedReservation] = useState(null);
+  const [FinReservation, setFinReservation] = useState(null);
+
+
+const [finData, setFinData] = useState({
+  dommages: "",
+  km_fin: "",
+  km_total: "",
+  status_payee: "Non payée",
+  scoring: 0,
+  comment_scoring :""
+});
+
+
+  const handleFinChange = (e) => {
+  setFinData({
+    ...finData,
+    [e.target.name]: e.target.value,
+  });
+};
+
+  const submitFinReservation = async () => {
+  if (!finData.km_fin || !finData.km_total) {
+    alert("Veuillez remplir les kilomètres");
+    return;
+  }
+
+  try {
+    await callApi(
+      "/reservation-fins",
+      "POST",
+      {
+        reservation_id: FinReservation.id,
+        dommages: finData.dommages,
+        km_fin: finData.km_fin,
+        km_total: finData.km_total,
+        status_payee: true,
+      },
+      {
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      }
+    );
+    console.log(finData);
+    await callApi(
+      `/reservations/${FinReservation.id}`,
+      "PUT", { 
+        status: "Terminé" ,
+        scoring : finData.scoring,
+        comment_scoring : finData.comment_scoring
+      },
+      {
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      }
+    );
+
+    await callApi(
+      `/voitures/${FinReservation.voiture_id}`,
+      "PUT",
+      {status: "Disponible"},
+      {
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      }
+    );
+
+    // Mettre réservation en Terminé
+    setReservations((prev) =>
+      prev.map((r) =>
+        r.id === FinReservation.id
+          ? { ...r, status: "Terminé" }
+          : r
+      )
+    );
+
+    setFinReservation(null);
+    setFinData({})
+  } catch (err) {
+    console.error(err);
+    alert("Erreur lors de la fin de réservation");
+  }
+};
+
+
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -143,7 +224,9 @@ const ReservationPage = () => {
       await callApi(
         `/reservations/${reservationId}/end`,
         "PUT",
-        { date_fin: today, status: "Terminé" },
+        { date_fin: today, status: "Terminé" ,         
+          scoring : finData.scoring,
+        comment_scoring : finData.comment_scoring },
         { Authorization: `Bearer ${localStorage.getItem("token")}` }
       );
 
@@ -319,17 +402,18 @@ const ReservationPage = () => {
                         ℹ️ Info
                       </button>
 
-                      <button
-                        disabled={r.status === "Terminé"}
-                        onClick={() => endReservation(r.id)}
-                        className={`flex items-center gap-1 px-3 py-1 rounded text-xs text-white ${
-                          r.status === "Terminé"
-                            ? "bg-gray-400 cursor-not-allowed"
-                            : "bg-green-600 hover:bg-green-700"
-                        }`}
-                      >
-                        ✅ Fin
-                      </button>
+                        <button
+                          onClick={() => setFinReservation(r)}
+                          disabled={r.status === "Terminé"}
+                          className={`px-3 py-1 rounded text-xs text-white ${
+                            r.status === "Terminé"
+                              ? "bg-gray-400 cursor-not-allowed"
+                              : "bg-green-600 hover:bg-green-700"
+                          }`}
+                        >
+                          ✅ Fin
+                        </button>
+
                     </div>
                   </td>
                 </tr>
@@ -360,7 +444,6 @@ const ReservationPage = () => {
             {i + 1}
           </button>
         ))}
-
         <button
           disabled={currentPage === totalPages}
           onClick={() => setCurrentPage((p) => p + 1)}
@@ -458,6 +541,126 @@ const ReservationPage = () => {
           </div>
         </div>
       )}
+      {/* ================= MODAL INFO ================= */}
+      {FinReservation && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3">
+    <div className="bg-white p-6 rounded w-full max-w-[520px]">
+      {/* HEADER */}
+      <div className="flex justify-between items-start gap-3">
+        <h2 className="text-xl font-bold">
+          Fin Réservation #{FinReservation.id}
+        </h2>
+
+        <button
+          onClick={() => setFinReservation(null)}
+          className="text-sm px-2 py-1 border rounded hover:bg-gray-100"
+        >
+          ✖
+        </button>
+      </div>
+
+      {/* INFO */}
+      <div className="mt-4 space-y-1 text-sm">
+        <p>
+          <b>Client :</b>{" "}
+          {clientsMap[FinReservation.client_id]?.nom}{" "}
+          {clientsMap[FinReservation.client_id]?.prenom}
+        </p>
+        <p>
+          <b>CIN :</b>{" "}
+          {clientsMap[FinReservation.client_id]?.cin}
+        </p>
+
+        <p>
+          <b>Voiture :</b>{" "}
+          {voituresMap[FinReservation.voiture_id]?.model} (
+          {voituresMap[FinReservation.voiture_id]?.matricule})
+        </p>
+      </div>
+
+      <hr className="my-3" />
+
+      {/* FORM */}
+      <div className="space-y-3 text-sm">
+        <textarea
+          name="dommages"
+          placeholder="Dommages (si existants)"
+          value={finData.dommages}
+          onChange={handleFinChange}
+          className="border p-2 rounded w-full"
+        />
+
+        <input
+          type="number"
+          name="km_fin"
+          placeholder="Kilométrage fin"
+          value={finData.km_fin}
+          onChange={handleFinChange}
+          className="border p-2 rounded w-full"
+        />
+
+        <input
+          type="number"
+          name="km_total"
+          placeholder="Kilométrage total parcouru"
+          value={finData.km_total}
+          onChange={handleFinChange}
+          className="border p-2 rounded w-full"
+        />
+
+        <select
+          name="status_payee"
+          value={finData.status_payee}
+          onChange={handleFinChange}
+          className="border p-2 rounded w-full"
+        >
+          <option value="Non payée">Non payée</option>
+          <option value="Payée">Payée</option>
+        </select>
+
+            
+        <input
+          type="number"
+          name="scoring"
+          min={0}
+          max={100}
+          placeholder="scoring client (0-100)"
+          value={finData.scoring}
+          onChange={handleFinChange}
+          className="border p-2 rounded w-full"
+        />
+        
+        <input
+          type="text"
+          name="comment_scoring"
+          placeholder="commante client"
+          value={finData.comment_scoring}
+          onChange={handleFinChange}
+          className="border p-2 rounded w-full"
+        />
+
+      </div>
+
+      {/* ACTIONS */}
+      <div className="flex justify-end gap-2 mt-5">
+        <button
+          onClick={() => setFinReservation(null)}
+          className="px-4 py-1 border rounded"
+        >
+          Annuler
+        </button>
+
+        <button
+          onClick={submitFinReservation}
+          className="bg-green-600 hover:bg-green-700 text-white px-4 py-1 rounded"
+        >
+          Valider Fin
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   );
 };

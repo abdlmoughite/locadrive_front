@@ -2,14 +2,13 @@ import { useEffect, useState } from "react";
 import { callApi } from "../components/api";
 import { FiSearch, FiPlus, FiUser } from "react-icons/fi";
 
-
-
 const Clients = () => {
   const [clients, setClients] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [page, setPage] = useState(1);
+
   const [showAddPopup, setShowAddPopup] = useState(false);
   const [showViewPopup, setShowViewPopup] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
@@ -17,15 +16,25 @@ const Clients = () => {
   const itemsPerPage = 10;
 
   // -------------------------------
-  // Fetch clients
+  // Fetch clients (NEWEST FIRST)
   // -------------------------------
   const loadClients = async () => {
-    const res = await callApi(`/clients/agency/${localStorage.getItem("user")}`, "GET" , null , {
+    const res = await callApi(
+      `/clients/agency/${localStorage.getItem("user")}`,
+      "GET",
+      null,
+      {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
-    });
-    console.log("Clients API Response:", res);
-    setClients(res);
-    setFiltered(res);
+      }
+    );
+
+    // 👉 dernier client ajouté en premier
+    const sorted = [...res].sort(
+      (a, b) => new Date(b.created_at) - new Date(a.created_at)
+    );
+
+    setClients(sorted);
+    setFiltered(sorted);
   };
 
   useEffect(() => {
@@ -33,25 +42,26 @@ const Clients = () => {
   }, []);
 
   // -------------------------------
-  // Search filter
+  // Search + Date filter
   // -------------------------------
   useEffect(() => {
-    let data = clients;
+    let data = [...clients];
 
     if (search.trim() !== "") {
+      const q = search.toLowerCase();
       data = data.filter(
-        (client) =>
-          client.nom.toLowerCase().includes(search.toLowerCase()) ||
-          client.prenom.toLowerCase().includes(search.toLowerCase()) ||
-          client.cin.toLowerCase().includes(search.toLowerCase()) ||
-          client.tele.toLowerCase().includes(search.toLowerCase())
+        (c) =>
+          c.nom.toLowerCase().includes(q) ||
+          c.prenom.toLowerCase().includes(q) ||
+          c.cin.toLowerCase().includes(q) ||
+          c.tele.toLowerCase().includes(q)
       );
     }
 
     if (dateFilter !== "") {
       data = data.filter(
-        (client) =>
-          new Date(client.created_at).toLocaleDateString() ===
+        (c) =>
+          new Date(c.created_at).toLocaleDateString() ===
           new Date(dateFilter).toLocaleDateString()
       );
     }
@@ -68,28 +78,27 @@ const Clients = () => {
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
 
   // -------------------------------
-  // Add Client (Fake demo)
+  // Add Client
   // -------------------------------
-
   const [clientadd, setClientAdd] = useState({
-    agency_id : localStorage.getItem("user")
+    agency_id: localStorage.getItem("user"),
   });
+
   const handlerclientadd = (e) => {
     setClientAdd({ ...clientadd, [e.target.name]: e.target.value });
-  }
+  };
 
   const handleAddClient = async (e) => {
     e.preventDefault();
-    const res = await callApi(`/clients`, "POST" , clientadd , {
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
+    await callApi(`/clients`, "POST", clientadd, {
+      Authorization: `Bearer ${localStorage.getItem("token")}`,
     });
-    console.log(res);
     setShowAddPopup(false);
     loadClients();
   };
 
   // -------------------------------
-  // View client details
+  // View client
   // -------------------------------
   const openView = (client) => {
     setSelectedClient(client);
@@ -98,21 +107,20 @@ const Clients = () => {
 
   return (
     <div className="p-6">
-
-      {/* Title + Add Button */}
+      {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Liste des Clients</h1>
 
         <button
           onClick={() => setShowAddPopup(true)}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
         >
           <FiPlus />
           Ajouter Client
         </button>
       </div>
 
-      {/* Search + Date Filter */}
+      {/* Search + Date */}
       <div className="flex gap-3 mb-4">
         <div className="flex items-center bg-white p-2 rounded-lg shadow w-1/3">
           <FiSearch />
@@ -136,7 +144,7 @@ const Clients = () => {
       {/* Table */}
       <div className="bg-white shadow rounded-lg overflow-hidden">
         <table className="w-full text-left">
-          <thead className="bg-gray-100 text-gray-700">
+          <thead className="bg-gray-100">
             <tr>
               <th className="p-3">Nom</th>
               <th className="p-3">Prénom</th>
@@ -148,16 +156,12 @@ const Clients = () => {
           </thead>
           <tbody>
             {paginated.map((client) => (
-              <tr
-                key={client.id}
-                className="border-b hover:bg-gray-50 transition"
-              >
+              <tr key={client.id} className="border-b hover:bg-gray-50">
                 <td className="p-3">{client.nom}</td>
                 <td className="p-3">{client.prenom}</td>
                 <td className="p-3">{client.tele}</td>
                 <td className="p-3">{client.cin}</td>
                 <td className="p-3">{client.scoring}/100</td>
-
                 <td className="p-3">
                   <button
                     onClick={() => openView(client)}
@@ -173,7 +177,7 @@ const Clients = () => {
       </div>
 
       {/* Pagination */}
-      <div className="flex justify-center mt-4 gap-3">
+      <div className="flex justify-center mt-4 gap-2">
         {[...Array(totalPages)].map((_, i) => (
           <button
             key={i}
@@ -189,38 +193,28 @@ const Clients = () => {
         ))}
       </div>
 
-      {/* -------------------------- Add Client Popup -------------------------- */}
+      {/* ---------------- ADD CLIENT POPUP ---------------- */}
       {showAddPopup && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-96">
-
+          <div className="bg-white p-6 rounded-lg w-96">
             <h2 className="text-xl font-bold mb-4">Ajouter Client</h2>
 
             <form onSubmit={handleAddClient} className="flex flex-col gap-3">
+              <input name="nom" onChange={handlerclientadd} placeholder="Nom" className="border p-2 rounded" required />
+              <input name="prenom" onChange={handlerclientadd} placeholder="Prénom" className="border p-2 rounded" required />
+              <input name="cin" onChange={handlerclientadd} placeholder="CIN" className="border p-2 rounded" required />
+              <input name="permis" onChange={handlerclientadd} placeholder="Permis" className="border p-2 rounded" required />
+              <input name="tele" onChange={handlerclientadd} placeholder="Téléphone" className="border p-2 rounded" required />
+              <input name="scoring" type="number" min={0} max={100} onChange={handlerclientadd} placeholder="Scoring" className="border p-2 rounded" required />
 
-              <input type="text" onChange={handlerclientadd} name="nom" placeholder="Nom" className="border p-2 rounded" required />
-              <input type="text" onChange={handlerclientadd} name="prenom" placeholder="Prénom" className="border p-2 rounded" required />
-              <input type="text" onChange={handlerclientadd} name="cin" placeholder="CIN" className="border p-2 rounded" required />
-              <input type="text" onChange={handlerclientadd} name="permis" placeholder="Permis" className="border p-2 rounded" required />
-              <input type="text" onChange={handlerclientadd} name="tele" placeholder="Téléphone" className="border p-2 rounded" required />
-              <input type="text" onChange={handlerclientadd} name="img_cin" placeholder="img_cin" className="border p-2 rounded" required />
-              <input type="text" onChange={handlerclientadd} name="img_permis" placeholder="img_permis" className="border p-2 rounded" required />
-              <input type="text" onChange={handlerclientadd} name="face2_cin" placeholder="face2_cin" className="border p-2 rounded" required />
-              <input type="text" onChange={handlerclientadd} name="face2_prime" placeholder="face2_pirme" className="border p-2 rounded" required />
-              <input type="number" max={100} min={0} onChange={handlerclientadd} name="scoring" placeholder="scoring / 100" className="border p-2 rounded" required />
-              <input type="text" onChange={handlerclientadd} name="comment_scoring" placeholder="comment_scoring" className="border p-2 rounded" required />
-              
-              <button
-                type="submit"
-                className="bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
-              >
+              <button className="bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
                 Ajouter
               </button>
             </form>
 
             <button
               onClick={() => setShowAddPopup(false)}
-              className="mt-3 text-red-600 hover:underline"
+              className="mt-3 text-red-600"
             >
               Fermer
             </button>
@@ -228,34 +222,8 @@ const Clients = () => {
         </div>
       )}
 
-      {/* -------------------------- View Client Popup -------------------------- */}
-      {showViewPopup && selectedClient && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-96">
-
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <FiUser />
-              Informations Client
-            </h2>
-
-            <p><strong>Nom:</strong> {selectedClient.nom}</p>
-            <p><strong>Prénom:</strong> {selectedClient.prenom}</p>
-            <p><strong>CIN:</strong> {selectedClient.cin}</p>
-            <p><strong>Permis:</strong> {selectedClient.permis}</p>
-            <p><strong>Téléphone:</strong> {selectedClient.tele}</p>
-
-            <div className="mt-4">
-              <button
-                onClick={() => setShowViewPopup(false)}
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
-              >
-                Fermer
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
+      {/* ---------------- VIEW CLIENT POPUP ---------------- */}
+{showViewPopup && selectedClient && ( <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center"> <div className="bg-white p-6 rounded-lg shadow-lg w-96"> <h2 className="text-xl font-bold mb-4 flex items-center gap-2"> <FiUser /> Informations Client </h2> <p><strong>Nom:</strong> {selectedClient.nom}</p> <p><strong>Prénom:</strong> {selectedClient.prenom}</p> <p><strong>CIN:</strong> {selectedClient.cin}</p> <p><strong>Permis:</strong> {selectedClient.permis}</p> <p><strong>img_cin:</strong> {selectedClient.img_cin}</p> <p><strong>img_permis:</strong> {selectedClient.img_permis}</p> <p><strong>Téléphone:</strong> {selectedClient.tele}</p> <p><strong>scoring:</strong> {selectedClient.scoring}</p> <p><strong>face2_prime:</strong> {selectedClient.face2_prime}</p> <p><strong>face2_cin:</strong> {selectedClient.face2_cin}</p> <p><strong>comment_scoring:</strong> {selectedClient.comment_scoring}</p> <div className="mt-4"> <button onClick={() => setShowViewPopup(false)} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition" > Fermer </button> </div> </div> </div> )}
     </div>
   );
 };

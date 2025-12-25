@@ -42,8 +42,16 @@ const VoiturePage = () => {
     data.append("prix", form.prix);
     data.append("facture", form.facture);
 
+
+    const dataDepance = new FormData();
+      dataDepance.append("agency_id", idagency);
+      dataDepance.append("montant", form.prix);
+      dataDepance.append("date", form.date_debut);
+      dataDepance.append("commentaire", form.commentaire);
+      dataDepance.append("type", form.type);
+
+
     try {
-      console.log("Submitting repair:", form);
       await callApi(`/preparations`, "POST", data, {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
         "Content-Type": "multipart/form-data",
@@ -53,6 +61,10 @@ const VoiturePage = () => {
           } , {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           });
+                await callApi(`/depenses`, "POST", dataDepance, {
+                  Authorization: `Bearer ${localStorage.getItem("token")}`,
+                  "Content-Type": "multipart/form-data",
+                });
 
       setShowModal(false);
       setForm({
@@ -1045,11 +1057,9 @@ const [showInfo, setShowInfo] = useState(false);
           className="w-20 h-14 object-cover rounded mx-auto opacity-80"
         />
       </td>
-
       <td className="border p-2">{v.model}</td>
       <td className="border p-2">{v.matricule}</td>
       <td className="border p-2">{v.prix_jour} DH</td>
-
       <td className="border p-2 flex gap-2 justify-center">
         <span onClick={() => {
             setSelectedVoiture(v);
@@ -1057,7 +1067,6 @@ const [showInfo, setShowInfo] = useState(false);
           }} className="px-3 py-1 cursor-pointer bg-red-500 text-white rounded text-sm">
           Annuler Reparation  
         </span>
-
         <button
           onClick={() => {
             setSelectedVoiture(v);

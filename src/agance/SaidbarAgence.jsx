@@ -18,9 +18,6 @@ const AgenceSidebar = () => {
   const [agency, setAgency] = useState({ nom: "" });
   const navigate = useNavigate();
 
-  /* ======================
-     FETCH AGENCY INFO
-  ====================== */
   useEffect(() => {
     let isMounted = true;
 
@@ -79,7 +76,7 @@ const AgenceSidebar = () => {
       {/* Navigation */}
       <nav className="flex flex-col gap-2 flex-1">
         <NavLink
-          to="/agence"
+          to="/agence/Dashboard"
           end
           className={({ isActive }) => (isActive ? activeClass : linkClass)}
         >

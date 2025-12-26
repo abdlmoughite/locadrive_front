@@ -34,7 +34,7 @@ const AppAgance = () => {
 
         <Routes>
           <Route
-            path="/"
+            path="/Dashboard"
             element={<Dashboard/>}
           />
 

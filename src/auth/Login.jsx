@@ -19,9 +19,9 @@ const Login = () => {
       localStorage.setItem("role", res.role);
       localStorage.setItem("user", res.user.id);
 
-      if (res.role === "admin") navigate("/admin");
-      else if (res.role === "agence") navigate("/agence");
-      else navigate("/support");
+      if (res.role === "admin") navigate("/admin/");
+      else if (res.role === "agence") navigate("/agence/Dashboard");
+      else navigate("/support/");
 
     } catch (err) {
       setError(err.error || "Login failed");

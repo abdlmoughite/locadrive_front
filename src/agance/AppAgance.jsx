@@ -8,6 +8,7 @@ import Reparation from "./Reparation";
 import Abonnment from "./Abonnment";
 import Depance from "./Depance";
 import BlacklistClient from "./Blacklist";
+import Dashboard from "./Dashboard";
 
 const AppAgance = () => {
   useEffect(() => {
@@ -34,7 +35,7 @@ const AppAgance = () => {
         <Routes>
           <Route
             path="/"
-            element={<h1 className="text-3xl font-bold">Bienvenue à l’Agence</h1>}
+            element={<Dashboard/>}
           />
 
           <Route
